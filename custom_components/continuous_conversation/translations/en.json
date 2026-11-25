@@ -1,0 +1,48 @@
+{
+  "title": "Continuous Conversation",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Continuous Conversation",
+        "description": "Sentence-trigger automations can bypass this agent on the first turn. See README for pipeline limitations.",
+        "data": {
+          "mode": "Conversation mode",
+          "termination_phrases": "Termination phrases",
+          "termination_response": "Termination response",
+          "continue_unrecognized": "Continue after an unrecognized command",
+          "max_failures": "Maximum consecutive failed commands"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Already configured"
+    },
+    "error": {
+      "invalid_text": "Response and each phrase must contain text."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Continuous Conversation",
+        "data": {
+          "mode": "Conversation mode",
+          "termination_phrases": "Termination phrases",
+          "termination_response": "Termination response",
+          "continue_unrecognized": "Continue after an unrecognized command",
+          "max_failures": "Maximum consecutive failed commands"
+        }
+      }
+    },
+    "error": {
+      "invalid_text": "Response and each phrase must contain text."
+    }
+  },
+  "entity": {
+    "select": {
+      "mode": {
+        "name": "Conversation mode"
+      }
+    }
+  }
+}

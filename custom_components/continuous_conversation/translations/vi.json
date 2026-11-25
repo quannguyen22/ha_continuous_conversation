@@ -1,0 +1,48 @@
+{
+  "title": "Continuous Conversation",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Continuous Conversation",
+        "description": "Tự động hóa kích hoạt bằng câu nói có thể bỏ qua tác nhân ở lượt đầu. Xem README để biết giới hạn.",
+        "data": {
+          "mode": "Chế độ hội thoại",
+          "termination_phrases": "Cụm từ kết thúc",
+          "termination_response": "Phản hồi khi kết thúc",
+          "continue_unrecognized": "Tiếp tục sau lệnh không nhận dạng được",
+          "max_failures": "Số lệnh thất bại liên tiếp tối đa"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Đã cấu hình"
+    },
+    "error": {
+      "invalid_text": "Phản hồi và từng cụm từ phải có nội dung."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Continuous Conversation",
+        "data": {
+          "mode": "Chế độ hội thoại",
+          "termination_phrases": "Cụm từ kết thúc",
+          "termination_response": "Phản hồi khi kết thúc",
+          "continue_unrecognized": "Tiếp tục sau lệnh không nhận dạng được",
+          "max_failures": "Số lệnh thất bại liên tiếp tối đa"
+        }
+      }
+    },
+    "error": {
+      "invalid_text": "Phản hồi và từng cụm từ phải có nội dung."
+    }
+  },
+  "entity": {
+    "select": {
+      "mode": {
+        "name": "Chế độ hội thoại"
+      }
+    }
+  }
+}
