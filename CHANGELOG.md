@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3
+
+- Add UI-editable per-phrase termination rules with individual responses and a silent toggle. Empty rule responses also end silently.
+- Preserve existing shared phrases and personalized response as the fallback; per-phrase rules take precedence and can define new phrases.
+- Reject ambiguous duplicate normalized rule phrases and malformed entries.
+- Verify real pipeline stage advancement skips TTS entirely for silent termination on both supported Core versions.
+
 ## 0.1.2
 
 - Fix integration setup failing on Core 2026.11.2: intent processing moved from `PipelineRun` into `_DefaultPipelineProcessor` in `assist_pipeline.default_pipeline`.

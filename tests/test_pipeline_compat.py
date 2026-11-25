@@ -268,3 +268,68 @@ async def test_missing_pipeline_api_reports_configuration_error():
         pytest.raises(ConfigEntryError, match="cannot find a compatible"),
     ):
         install_pipeline_compat(hass, "test")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("silent", [False, True])
+async def test_custom_rule_pipeline_calls_tts_only_for_spoken_response(silent):
+    """Run real stage advancement: silent termination must not call TTS at all."""
+    from homeassistant.components.assist_pipeline.pipeline import (
+        PipelineInput,
+        PipelineStage,
+    )
+    from homeassistant.helpers import chat_session
+
+    hass = HomeAssistant("/tmp/cc-rule-tts")
+    agent, builtin, seen, unsubscribe = await setup_agents(hass, command="thôi")
+    agent.entry.options = DEFAULTS | {
+        "termination_rules": [
+            {"phrase": "thôi", "response": "Vâng ạ.", "silent": silent}
+        ]
+    }
+    run, events = make_run(hass, agent.entity_id)
+    host = getattr(run, "host", run)
+    host.end_stage = PipelineStage.TTS
+    release = install_pipeline_compat(hass, "test")
+    tts = AsyncMock()
+    try:
+        with (
+            chat_session.async_get_chat_session(
+                hass,
+                "session",
+                **({"context": host.context} if hasattr(run, "async_execute") else {}),
+            ) as session,
+            patch.object(run, "text_to_speech", tts),
+        ):
+            if hasattr(run, "async_execute"):
+                await run.async_execute(
+                    SimpleNamespace(
+                        stt_stream=None,
+                        intent_input="thôi",
+                        tts_input=None,
+                        session=session,
+                        conversation_extra_system_prompt=None,
+                    )
+                )
+            else:
+                with (
+                    patch.object(host, "start", Mock()),
+                    patch.object(host, "end", AsyncMock()),
+                ):
+                    await PipelineInput(
+                        run=host, session=session, intent_input="thôi"
+                    ).execute()
+        assert not seen
+        assert tts.await_count == int(not silent)
+        output = next(
+            e.data["intent_output"]
+            for e in events
+            if e.type == PipelineEventType.INTENT_END
+        )
+        assert not output["continue_conversation"]
+        if silent:
+            assert output["response"]["speech"] == {}
+    finally:
+        release()
+        unsubscribe()
+        await builtin.async_will_remove_from_hass()

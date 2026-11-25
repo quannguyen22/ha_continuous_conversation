@@ -10,7 +10,12 @@
           "termination_phrases": "Cụm từ kết thúc",
           "termination_response": "Phản hồi khi kết thúc",
           "continue_unrecognized": "Tiếp tục sau lệnh không nhận dạng được",
-          "max_failures": "Số lệnh thất bại liên tiếp tối đa"
+          "max_failures": "Số lệnh thất bại liên tiếp tối đa",
+          "termination_rules": "Phản hồi riêng theo cụm từ kết thúc"
+        },
+        "data_description": {
+          "termination_rules": "Thêm quy tắc cho từng cụm từ. Để trống phản hồi hoặc bật Kết thúc im lặng để dừng không đọc gì. Quy tắc riêng được ưu tiên hơn danh sách chung; không nhập hai cụm từ giống nhau.",
+          "termination_response": "Dùng cho các cụm từ trong danh sách chung chưa có quy tắc riêng."
         }
       }
     },
@@ -18,7 +23,7 @@
       "already_configured": "Đã cấu hình"
     },
     "error": {
-      "invalid_text": "Phản hồi và từng cụm từ phải có nội dung."
+      "invalid_text": "Phản hồi chung phải có nội dung. Cụm từ trong quy tắc phải có chữ, không được trùng nhau sau khi chuẩn hóa."
     }
   },
   "options": {
@@ -30,18 +35,40 @@
           "termination_phrases": "Cụm từ kết thúc",
           "termination_response": "Phản hồi khi kết thúc",
           "continue_unrecognized": "Tiếp tục sau lệnh không nhận dạng được",
-          "max_failures": "Số lệnh thất bại liên tiếp tối đa"
+          "max_failures": "Số lệnh thất bại liên tiếp tối đa",
+          "termination_rules": "Phản hồi riêng theo cụm từ kết thúc"
+        },
+        "data_description": {
+          "termination_rules": "Thêm quy tắc cho từng cụm từ. Để trống phản hồi hoặc bật Kết thúc im lặng để dừng không đọc gì. Quy tắc riêng được ưu tiên hơn danh sách chung; không nhập hai cụm từ giống nhau.",
+          "termination_response": "Dùng cho các cụm từ trong danh sách chung chưa có quy tắc riêng."
         }
       }
     },
     "error": {
-      "invalid_text": "Phản hồi và từng cụm từ phải có nội dung."
+      "invalid_text": "Phản hồi chung phải có nội dung. Cụm từ trong quy tắc phải có chữ, không được trùng nhau sau khi chuẩn hóa."
     }
   },
   "entity": {
     "select": {
       "mode": {
         "name": "Chế độ hội thoại"
+      }
+    }
+  },
+  "selector": {
+    "termination_rule": {
+      "fields": {
+        "phrase": {
+          "name": "Cụm từ kết thúc"
+        },
+        "response": {
+          "name": "Phản hồi",
+          "description": "Để trống để kết thúc im lặng."
+        },
+        "silent": {
+          "name": "Kết thúc im lặng",
+          "description": "Không phát TTS, kể cả khi đã nhập phản hồi."
+        }
       }
     }
   }

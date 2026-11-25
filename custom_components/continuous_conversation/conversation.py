@@ -56,7 +56,8 @@ class ContinuousConversation(conversation.ConversationEntity):
         response = intent.IntentResponse(language=user_input.language)
         if error:
             response.async_set_error(intent.IntentResponseErrorCode.UNKNOWN, text)
-        else:
+        elif text.strip():
+            # No speech payload means the pipeline skips TTS and ends the run.
             response.async_set_speech(text)
         return conversation.ConversationResult(
             response, user_input.conversation_id, False
@@ -79,6 +80,15 @@ class ContinuousConversation(conversation.ConversationEntity):
             return self._reply(
                 user_input, "Tôi chưa nghe rõ. Bạn có thể gọi lại khi cần nhé."
             )
+        for rule in options["termination_rules"]:
+            if text == normalize(rule["phrase"]):
+                self.failures.clear(key)
+                response = (
+                    ""
+                    if rule.get("silent", False)
+                    else rule.get("response", "").strip()
+                )
+                return self._reply(user_input, response)
         if text in {normalize(phrase) for phrase in options["termination_phrases"]}:
             self.failures.clear(key)
             return self._reply(user_input, options["termination_response"])

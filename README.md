@@ -2,7 +2,7 @@
 
 A local custom Home Assistant conversation agent that delegates to the built-in agent and changes only the continuation flag. Tested on Core **2026.9.3 and 2026.11.2**, Glassworks **Aqara S1 Plus 0.9.0**. No LLM, cloud service, or firmware change is included. Version 0.1.2 includes a scoped, reversible runtime patch to Assist Pipeline; it does not modify Core files on disk.
 
-**Status: 0.1.2 fixes first-turn automation routing, with real Core pipeline/agent/script regression tests. Physical Glassworks validation is still pending.** The runtime compatibility patch uses private Core APIs; read the compatibility section before upgrading Core.
+**Status: 0.1.3 adds per-phrase replies and silent termination, retaining the first-turn automation routing fix and real Core pipeline/agent/script regression tests. Physical Glassworks validation is still pending.** The runtime compatibility patch uses private Core APIs; read the compatibility section before upgrading Core.
 
 ## Installation
 
@@ -24,7 +24,23 @@ HACS installs the files; it does not configure the voice assistant or remove the
 
 Use the mode select entity or the integration's options dialog. Options persist through Home Assistant restarts. They include a list of termination phrases, a termination response, whether to continue after a recognition miss, and the maximum consecutive failures (1–10, default 2). With maximum 2, the second consecutive miss ends the session. Errors other than `no_intent_match` always stop. The default stops on the first miss.
 
-Stop phrases are matched against the entire normalized utterance: NFC Unicode, case folding, punctuation replaced by spaces, and collapsed whitespace. Accents are retained. “CẢM ƠN NHÉ!” matches; “bật đèn rồi cảm ơn nhé” does not. An empty phrase list disables phrase interception. Empty/punctuation-only phrases and blank responses are rejected.
+### Per-phrase replies and silent termination (0.1.3)
+
+In Devices & Services → Continuous Conversation → Configure, open **Per-phrase termination responses** and add an item for each phrase. Each item has a **Termination phrase**, optional **Response**, and **End silently** toggle.
+
+| Phrase | Response | End silently |
+| --- | --- | --- |
+| cảm ơn | Rất vui được giúp bạn. | Off |
+| tạm biệt | Hẹn gặp lại bạn nhé. | Off |
+| thôi | (empty) | On |
+
+A rule phrase works even if it is absent from the shared termination list. A rule overrides that phrase's shared response. An empty or whitespace-only response is silent too; **End silently** takes precedence over any entered response. All these outcomes end the conversation and are never forwarded to the built-in agent. Two rules with the same normalized phrase are rejected.
+
+The existing shared phrase list and response are preserved on upgrade and remain the fallback for phrases without a rule. No migration or reconfiguration is required. Removing a rule restores the shared behavior if its phrase is in the shared list; otherwise the phrase stops being a termination command.
+
+Silent termination returns no speech payload and sets `continue_conversation` to false. The real Core pipeline skips TTS; Glassworks returns to idle when that run ends. It still waits for STT to recognize the phrase: this feature does not shorten VAD or transcription time for a short word such as “thôi”. Physical idle behavior remains to be verified on the panel.
+
+Stop phrases are matched against the entire normalized utterance: NFC Unicode, case folding, punctuation replaced by spaces, and collapsed whitespace. Accents are retained. “CẢM ƠN NHÉ!” matches; “bật đèn rồi cảm ơn nhé” does not. An empty phrase list disables phrase interception. Empty/punctuation-only phrases and blank shared responses are rejected. Per-phrase responses may be empty for silent termination.
 
 ## Architecture and runtime compatibility
 

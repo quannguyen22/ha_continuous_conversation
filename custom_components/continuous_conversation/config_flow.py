@@ -25,6 +25,31 @@ def options_schema(options: dict[str, Any]) -> vol.Schema:
             vol.Required(
                 "termination_response", default=values["termination_response"]
             ): str,
+            vol.Optional(
+                "termination_rules", default=values["termination_rules"]
+            ): selector.ObjectSelector(
+                selector.ObjectSelectorConfig(
+                    multiple=True,
+                    label_field="phrase",
+                    description_field="response",
+                    translation_key="termination_rule",
+                    fields={
+                        "phrase": {
+                            "label": "Termination phrase",
+                            "required": True,
+                            "selector": selector.TextSelector(),
+                        },
+                        "response": {
+                            "label": "Response (empty = silent)",
+                            "selector": selector.TextSelector(),
+                        },
+                        "silent": {
+                            "label": "End silently",
+                            "selector": selector.BooleanSelector(),
+                        },
+                    },
+                )
+            ),
             vol.Required(
                 "continue_unrecognized", default=values["continue_unrecognized"]
             ): bool,
@@ -36,10 +61,31 @@ def options_schema(options: dict[str, Any]) -> vol.Schema:
 
 
 def valid(options: dict[str, Any]) -> bool:
-    """Reject blank termination phrases or a silent termination response."""
-    return bool(options["termination_response"].strip()) and all(
-        normalize(phrase) for phrase in options["termination_phrases"]
-    )
+    """Reject empty or ambiguous phrases and malformed per-phrase rules."""
+    if not (
+        isinstance(options.get("termination_response"), str)
+        and options["termination_response"].strip()
+        and all(normalize(phrase) for phrase in options["termination_phrases"])
+    ):
+        return False
+    rules = options.get("termination_rules", [])
+    if not isinstance(rules, list):
+        return False
+    seen: set[str] = set()
+    for rule in rules:
+        if (
+            not isinstance(rule, dict)
+            or not isinstance(rule.get("phrase"), str)
+            or not isinstance(rule.get("response", ""), str)
+            or not isinstance(rule.get("silent", False), bool)
+            or set(rule) - {"phrase", "response", "silent"}
+        ):
+            return False
+        phrase = normalize(rule["phrase"])
+        if not phrase or phrase in seen:
+            return False
+        seen.add(phrase)
+    return True
 
 
 class ContinuousConversationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):

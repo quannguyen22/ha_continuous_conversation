@@ -143,3 +143,48 @@ async def test_entry_setup_installs_real_compatibility_patch():
     finally:
         assert await async_unload_entry(hass, entry)
     assert target.recognize_intent is original
+
+
+@pytest.mark.parametrize(
+    "rules",
+    [
+        [{"phrase": "!!!", "response": "Stop"}],
+        [{"phrase": "thôi"}, {"phrase": "THÔI!"}],
+        [{"response": "Missing phrase"}],
+        [{"phrase": "thôi", "response": None}],
+        [{"phrase": "thôi", "silent": "yes"}],
+        [{"phrase": "thôi", "unexpected": True}],
+        ["not a rule"],
+        {"thôi": "not a list"},
+    ],
+)
+def test_invalid_termination_rules(rules):
+    assert not valid(DEFAULTS | {"termination_rules": rules})
+
+
+def test_termination_rule_selector_and_legacy_options():
+    values = DEFAULTS | {
+        "termination_rules": [
+            {"phrase": "thôi", "silent": True},
+            {"phrase": "cảm ơn", "response": "Vâng ạ."},
+        ]
+    }
+    assert options_schema({})(values) == values
+    assert valid(values)
+    legacy = {k: v for k, v in DEFAULTS.items() if k != "termination_rules"}
+    assert valid(legacy)
+    assert options_schema(legacy)(legacy)["termination_rules"] == []
+    assert valid(DEFAULTS | {"termination_rules": [{"phrase": "im lặng"}]})
+
+
+@pytest.mark.asyncio
+async def test_rules_persist_through_options_flow():
+    values = DEFAULTS | {"termination_rules": [{"phrase": "thôi", "silent": True}]}
+    options_flow = ContinuousConversationOptionsFlow()
+    response = await options_flow.async_step_init(values)
+    assert response["data"]["termination_rules"] == values["termination_rules"]
+    invalid = await options_flow.async_step_init(
+        DEFAULTS | {"termination_rules": [{"phrase": ""}]}
+    )
+    assert invalid["type"] == "form"
+    assert invalid["errors"] == {"base": "invalid_text"}

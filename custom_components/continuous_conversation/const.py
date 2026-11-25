@@ -16,6 +16,7 @@ DEFAULTS = {
     "mode": "Always",
     "termination_phrases": DEFAULT_PHRASES,
     "termination_response": "Vâng, hẹn gặp lại bạn nhé.",
+    "termination_rules": [],
     "continue_unrecognized": False,
     "max_failures": 2,
 }

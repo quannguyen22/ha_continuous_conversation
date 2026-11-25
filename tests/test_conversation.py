@@ -184,3 +184,54 @@ def test_normalization_and_bounded_expiry():
     ):
         tracker.prune()
     assert not tracker._items
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("CẢM ƠN!", "Rất vui được giúp bạn."),
+        ("tạm biệt", "Hẹn gặp lại bạn."),
+        ("thôi", ""),
+        ("im lặng nhé", ""),
+        ("kết thúc", ""),
+    ],
+)
+async def test_per_phrase_response_and_silent_rules(text, expected):
+    entity = wrapper(
+        termination_rules=[
+            {"phrase": "cảm ơn", "response": "Rất vui được giúp bạn."},
+            {"phrase": "tạm biệt", "response": "Hẹn gặp lại bạn."},
+            {"phrase": "thôi", "response": "Not spoken", "silent": True},
+            {"phrase": "im lặng nhé", "response": "   "},
+            {"phrase": "kết thúc"},
+        ]
+    )
+    with patch(
+        "custom_components.continuous_conversation.conversation.conversation.async_get_agent"
+    ) as delegate:
+        output = await entity.async_process(user(text))
+    delegate.assert_not_called()
+    assert not output.continue_conversation
+    assert output.conversation_id == "session1"
+    assert output.response.speech.get("plain", {}).get("speech", "") == expected
+    if not expected:
+        assert output.response.speech == {}
+
+
+@pytest.mark.asyncio
+async def test_legacy_response_and_custom_rule_substring_preserved():
+    entity = wrapper(
+        termination_response="Existing personalized response",
+        termination_rules=[{"phrase": "cảm ơn", "response": "New response"}],
+    )
+    assert (await entity.async_process(user("thôi"))).response.speech["plain"][
+        "speech"
+    ] == "Existing personalized response"
+    delegate = SimpleNamespace(async_process=AsyncMock(return_value=result()))
+    with patch(
+        "custom_components.continuous_conversation.conversation.conversation.async_get_agent",
+        return_value=delegate,
+    ):
+        await entity.async_process(user("bật đèn rồi cảm ơn"))
+    delegate.async_process.assert_awaited_once()
