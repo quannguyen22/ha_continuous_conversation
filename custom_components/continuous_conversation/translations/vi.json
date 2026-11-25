@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Continuous Conversation",
-        "description": "Tự động hóa kích hoạt bằng câu nói có thể bỏ qua tác nhân ở lượt đầu. Xem README để biết giới hạn.",
+        "description": "Dùng bản vá Assist Pipeline trong bộ nhớ để tiếp tục sau phản hồi automation. Đã kiểm thử với Core 2026.9.3; xem README về tương thích khi nâng cấp.",
         "data": {
           "mode": "Chế độ hội thoại",
           "termination_phrases": "Cụm từ kết thúc",

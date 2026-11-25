@@ -4,3 +4,7 @@ pytest-asyncio>=0.24
 gazetteer-matcher==1.1.0
 hassil==3.12.1
 home-assistant-intents==2026.8.28
+mutagen==1.48.1
+pymicro-vad==1.0.1
+pyspeex-noise==1.0.2
+ha-ffmpeg==3.2.2

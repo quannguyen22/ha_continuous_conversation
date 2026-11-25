@@ -1,14 +1,14 @@
 # Continuous Conversation
 
-A local custom Home Assistant conversation agent that delegates to the built-in agent and changes only the continuation flag. Targets Core **2026.9.3**, Glassworks **Aqara S1 Plus 0.9.0**. No LLM, cloud service, Core patch, or firmware change is included.
+A local custom Home Assistant conversation agent that delegates to the built-in agent and changes only the continuation flag. Targets Core **2026.9.3**, Glassworks **Aqara S1 Plus 0.9.0**. No LLM, cloud service, or firmware change is included. Version 0.1.1 includes a scoped, reversible runtime patch to Assist Pipeline; it does not modify Core files on disk.
 
-**Status: implementation with automated tests, pending physical validation. The full acceptance criteria cannot be met by a custom-agent-only integration on unmodified Core 2026.9.3.** Read the pipeline limitation below before installation.
+**Status: 0.1.1 fixes first-turn automation routing, with real Core pipeline/agent/script regression tests. Physical Glassworks validation is still pending.** The runtime compatibility patch uses private Core APIs; read the compatibility section before upgrading Core.
 
 ## Installation
 
 Copy `custom_components/continuous_conversation` into `/config/custom_components/continuous_conversation` on Home Assistant. Restart Home Assistant. In Settings → Devices & Services → Add Integration, select **Continuous Conversation**. Configure its options, then select its conversation entity as the agent in the existing **Vietnamese Local** voice assistant. Keep Wyoming Vietnamese Gipformer and NghiTTS unchanged.
 
-Disable **Prefer handling commands locally** in that assistant's configuration so ordinary built-in intents reach this wrapper. This does **not** disable the separate sentence-trigger shortcut described below. Both panels must use the configured assistant.
+Select this agent for both panels. Disabling **Prefer handling commands locally** is recommended for a clear configuration, but the 0.1.1 runtime patch routes both local intents and sentence triggers through the wrapper regardless of that preference.
 
 ### Install through HACS
 
@@ -26,18 +26,21 @@ Use the mode select entity or the integration's options dialog. Options persist 
 
 Stop phrases are matched against the entire normalized utterance: NFC Unicode, case folding, punctuation replaced by spaces, and collapsed whitespace. Accents are retained. “CẢM ƠN NHÉ!” matches; “bật đèn rồi cảm ơn nhé” does not. An empty phrase list disables phrase interception. Empty/punctuation-only phrases and blank responses are rejected.
 
-## Verified architecture and important pipeline limitation
+## Architecture and runtime compatibility
 
-The wrapper is a `ConversationEntity`, discovered through the conversation platform. It explicitly resolves `conversation.HOME_ASSISTANT_AGENT` and calls that agent's `async_process` once with the **original ConversationInput object**. This preserves text, context, language, device/satellite IDs, conversation ID, original agent attribution, and extra prompt. It returns the original result and response object after adjusting `continue_conversation`. It does not reimplement intent recognition or execute automation triggers itself. Built-in matching, custom sentences, intent handling, and automation `set_conversation_response` remain in the built-in code path when delegation is reached.
+The wrapper is a `ConversationEntity`, discovered through the conversation platform. It explicitly resolves `conversation.HOME_ASSISTANT_AGENT` and calls that agent's `async_process` once with the **original ConversationInput object**. This preserves text, context, language, device/satellite IDs, conversation ID, original agent attribution, and extra prompt. It returns the original result and response object after adjusting `continue_conversation`. Built-in matching, custom sentences, intent handling, and automation `set_conversation_response` stay in the built-in code path.
 
-Core's Assist Pipeline has a shortcut **before** calling a custom agent: sentence-trigger automations are tried first, and local intents are also tried when `prefer_local_intents` is enabled. These shortcut results get a new `ConversationResult` with continuation false. Therefore:
+Core 2026.9.3 tries sentence-trigger automations before calling custom agents. Version 0.1.0 therefore could not continue after first-turn automation commands, even with local preference disabled. This was confirmed in the user's live pipeline trace for “chất lượng không khí”: `processed_locally: true`, `continue_conversation: false`.
 
-- On a fresh wake-word turn matching a sentence-triggered automation, the automation runs normally, but this agent is never called and listening will not automatically reopen.
-- A termination phrase overlapping a sentence trigger can also be consumed by that trigger first.
-- Disable local preference to route ordinary intents through the wrapper. Once the wrapper requests continuation, Core sets `_intent_agent_only` for the next turn, bypassing those shortcuts. Existing sentence-trigger automations can then run through the delegated built-in agent and continue normally.
-- A practical entry path is a normal built-in command that reaches the wrapper first, then automation commands on subsequent turns. This does not provide unconditional continuation after an automation as the first command.
+### Fix in 0.1.1
 
-There is no public custom-agent hook to alter shortcut results. Making all first-turn automations continue would require an upstream Core change to route those results through a supported continuation-policy hook, or a different satellite-side continuation policy. Neither is implemented here: silently patching Core or overriding firmware would violate the requested architecture constraints. No supported alternative satisfying every acceptance criterion was found in the inspected sources.
+The integration wraps `PipelineRun.recognize_intent` in memory. Immediately before the original method runs, it sets that **individual run's** `_intent_agent_only` flag, only when the resolved agent is an active Continuous Conversation entity belonging to this integration entry and HA instance. This is the same flag Core uses for agent-only follow-up turns. The original pipeline then delegates to the wrapper instead of consuming the sentence trigger early. The built-in delegate still recognizes and executes the automation once, and its final result passes through the configured continuation policy. A stop phrase also reaches this policy before a matching automation can consume it.
+
+The previous per-run flag is restored in `finally`, including cancellation/errors. Other agents and HA instances retain their original routing. Renaming the conversation entity does not break selection. Unloading the final entry restores the original method when the integration still owns the method slot; if another integration wrapped it later, that wrapper is left intact and this integration's retained wrapper becomes inert. Setup failure also releases the patch; failed unload retains it with the still-loaded entry.
+
+**This is an explicit runtime monkey-patch, approved as an exception to the original no-monkey-patch requirement.** No Core file or automation is edited. The patch is installed automatically on startup/reload, so there is no manual Core patch to reapply after an upgrade. However, future Core compatibility is not guaranteed: this version is tested against **2026.9.3**. Setup checks the method signature and the presence of the expected routing hooks; incompatible shapes and pre-existing wrappers are rejected with a configuration error. These structural checks cannot detect every semantic change in future Core releases. Update this integration if Core changes its pipeline internals.
+
+Only the integration files need updating through HACS. After upgrading from 0.1.0 to 0.1.1, restart Home Assistant so Python loads the new compatibility module. To roll back, install 0.1.0 and restart, accepting its first-turn automation limitation; removing the integration also releases the runtime patch.
 
 This wrapper does not provide semantic follow-up understanding. Core owns conversation IDs and history. No global conversation ID is created. Failure counters are keyed by device, satellite, and conversation ID, expire after 5 minutes, and are capped at 256 entries. Pruning happens on requests; unloading releases all state. Concurrent requests update counters synchronously in completion order without sharing a session across panels. Requests with no usable conversation ID never retry failures. Reload resets transient failure counts and keeps persistent options.
 
@@ -75,10 +78,10 @@ python3 -m venv .venv
 .venv/bin/python -m pytest -q
 ```
 
-Tests use real pinned Home Assistant classes with a mocked delegate. They check exact input and response preservation, modes, stop matching, errors, failure limits/reset, session isolation, concurrent devices, expiry/bounds, configuration and platform lifecycle. They do not execute real STT/TTS, real sentence-trigger automations, or a physical panel. See `VALIDATION.md` for the recorded results and remaining acceptance checks.
+Tests use real pinned Home Assistant classes with a mocked delegate. They check exact input and response preservation, modes, stop matching, errors, failure limits/reset, session isolation, concurrent devices, expiry/bounds, configuration and platform lifecycle. Additional regression tests run the real Core pipeline, default agent sentence matching, registered trigger callback and a real script containing `set_conversation_response`. They verify one execution per request, mode policy, overlapping stop phrases, renamed agents, two concurrent panels, patch cleanup, cancellation and compatibility rejection. They do not execute real STT/TTS or a physical panel. See `VALIDATION.md` for the recorded results and remaining acceptance checks.
 
 ## Troubleshooting
 
-If the integration is missing, confirm the folder nesting, restart Core, and check startup logs. If the agent is missing, confirm the conversation platform loaded and the entity is enabled. If ordinary commands do not continue, disable local preference and verify the pipeline selects this agent. If only first-turn automation commands stop, this is the documented pipeline shortcut. If no response audio plays, check NghiTTS and the panel's reachability to the audio URL; Glassworks requires successful playback to restart. If listening hangs during silence, inspect the pipeline's STT/VAD diagnostics and Wyoming service; there is no agent-level timeout setting. Avoid sharing pipeline debug recordings containing private speech.
+If the integration is missing, confirm the folder nesting, restart Core, and check startup logs. If the agent is missing, confirm the conversation platform loaded and the entity is enabled. If ordinary commands do not continue, disable local preference and verify the pipeline selects this agent. If first-turn automation commands stop, verify version 0.1.1 is installed, restart HA, and inspect integration setup errors and the pipeline trace. With this agent selected, successful automation results should now have `continue_conversation: true` in Always mode. If no response audio plays, check NghiTTS and the panel's reachability to the audio URL; Glassworks requires successful playback to restart. If listening hangs during silence, inspect the pipeline's STT/VAD diagnostics and Wyoming service; there is no agent-level timeout setting. Avoid sharing pipeline debug recordings containing private speech.
 
 To uninstall, select the built-in Home Assistant agent in each assistant, remove the integration from Devices & Services, remove its custom component directory, and restart Core.

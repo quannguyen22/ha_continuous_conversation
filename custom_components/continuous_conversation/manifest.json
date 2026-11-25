@@ -1,9 +1,10 @@
 {
   "domain": "continuous_conversation",
   "name": "Continuous Conversation",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "config_flow": true,
   "dependencies": [
+    "assist_pipeline",
     "conversation"
   ],
   "documentation": "https://github.com/quannguyen22/ha_continuous_conversation",

@@ -1,7 +1,7 @@
 """Exercise configuration schema, persistence and lifecycle against HA APIs."""
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 import voluptuous as vol
@@ -68,8 +68,53 @@ async def test_select_persists_and_lifecycle():
     assert (
         config_entries.async_update_entry.call_args.kwargs["options"]["mode"] == "Off"
     )
-    assert await async_setup_entry(hass, entry)
-    assert await async_unload_entry(hass, entry)
+    remove_patch = Mock()
+    with patch(
+        "custom_components.continuous_conversation.install_pipeline_compat",
+        return_value=remove_patch,
+    ):
+        assert await async_setup_entry(hass, entry)
+        assert await async_unload_entry(hass, entry)
+    remove_patch.assert_called_once_with()
     config_entries.async_forward_entry_setups.assert_awaited_once()
     config_entries.async_unload_platforms.assert_awaited_once()
     entry.async_on_unload.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_setup_failure_releases_patch():
+    """A failed platform setup must not leave a process-wide patch installed."""
+    from custom_components.continuous_conversation import async_setup_entry
+
+    entry = SimpleNamespace(entry_id="test")
+    hass = SimpleNamespace(
+        config_entries=SimpleNamespace(
+            async_forward_entry_setups=AsyncMock(
+                side_effect=RuntimeError("setup failed")
+            )
+        )
+    )
+    release = Mock()
+    with (
+        patch(
+            "custom_components.continuous_conversation.install_pipeline_compat",
+            return_value=release,
+        ),
+        pytest.raises(RuntimeError, match="setup failed"),
+    ):
+        await async_setup_entry(hass, entry)
+    release.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+async def test_failed_unload_retains_patch():
+    """Keep routing in place while an entry remains loaded."""
+    release = Mock()
+    entry = SimpleNamespace(runtime_data=release)
+    hass = SimpleNamespace(
+        config_entries=SimpleNamespace(
+            async_unload_platforms=AsyncMock(return_value=False)
+        )
+    )
+    assert not await async_unload_entry(hass, entry)
+    release.assert_not_called()
