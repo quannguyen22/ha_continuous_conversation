@@ -118,3 +118,28 @@ async def test_failed_unload_retains_patch():
     )
     assert not await async_unload_entry(hass, entry)
     release.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_entry_setup_installs_real_compatibility_patch():
+    """Catch layout errors at real entry startup, before a conversation begins."""
+    from custom_components.continuous_conversation.pipeline_compat import (
+        _get_pipeline_type,
+    )
+
+    hass = HomeAssistant("/tmp/cc-real-entry-setup")
+    hass.config_entries = SimpleNamespace(
+        async_forward_entry_setups=AsyncMock(),
+        async_unload_platforms=AsyncMock(return_value=True),
+    )
+    entry = SimpleNamespace(
+        entry_id="startup", async_on_unload=Mock(), add_update_listener=Mock()
+    )
+    target = _get_pipeline_type()
+    original = target.recognize_intent
+    assert await async_setup_entry(hass, entry)
+    try:
+        assert target.recognize_intent is not original
+    finally:
+        assert await async_unload_entry(hass, entry)
+    assert target.recognize_intent is original

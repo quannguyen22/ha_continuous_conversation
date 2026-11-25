@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+- Fix integration setup failing on Core 2026.11.2: intent processing moved from `PipelineRun` into `_DefaultPipelineProcessor` in `assist_pipeline.default_pipeline`.
+- Detect the actual processor layout and scope routing through its host HA instance. Preserve 2026.9.3 compatibility.
+- Report a clear configuration error if the processor method is missing, instead of raising `AttributeError`.
+- Test real entry setup/unload and the complete routing suite on both Core versions; add a CI matrix.
+
 ## 0.1.1
 
 - Fix first-turn conversation-triggered automation responses ending continuous conversation by routing them through the wrapper before applying continuation policy.

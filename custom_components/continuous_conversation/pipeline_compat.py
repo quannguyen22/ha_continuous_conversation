@@ -7,6 +7,7 @@ Keep the real-Core routing tests when changing this module or supporting new API
 import inspect
 from collections.abc import Callable
 from functools import wraps
+from importlib import import_module
 from typing import Any
 
 from homeassistant.components import conversation
@@ -19,11 +20,31 @@ from .conversation import ContinuousConversation
 # Each wrapper owns its registrations. A wrapper retained by another integration
 # after unload remains inert rather than overwriting that integration's patch.
 _active_patch: (
-    tuple[Callable[..., Any], Callable[..., Any], dict[HomeAssistant, set[str]]] | None
+    tuple[type, Callable[..., Any], Callable[..., Any], dict[HomeAssistant, set[str]]]
+    | None
 ) = None
 
 
-def _check_compatible(method: Callable[..., Any]) -> None:
+def _get_pipeline_type() -> type:
+    """Find the actual intent processor across the Core pipeline refactor."""
+    if callable(getattr(PipelineRun, "recognize_intent", None)):
+        return PipelineRun
+    try:
+        module = import_module(
+            "homeassistant.components.assist_pipeline.default_pipeline"
+        )
+        processor = getattr(module, "_DefaultPipelineProcessor", None)
+    except ModuleNotFoundError:
+        processor = None
+    if processor is None or not callable(getattr(processor, "recognize_intent", None)):
+        raise ConfigEntryError(
+            "Continuous Conversation cannot find a compatible Assist intent processor. "
+            "Update the integration for this Core version. No Core files have been changed."
+        )
+    return processor
+
+
+def _check_compatible(method: Callable[..., Any], target: type) -> None:
     """Reject unknown call shapes or shortcut implementations before patching."""
     expected = (
         "self",
@@ -33,8 +54,8 @@ def _check_compatible(method: Callable[..., Any]) -> None:
     )
     if (
         not inspect.iscoroutinefunction(method)
-        or method.__module__ != PipelineRun.__module__
-        or method.__qualname__ != "PipelineRun.recognize_intent"
+        or method.__module__ != target.__module__
+        or method.__qualname__ != f"{target.__qualname__}.recognize_intent"
         or hasattr(method, "__wrapped__")
         or tuple(inspect.signature(method).parameters) != expected
         or not {
@@ -55,22 +76,24 @@ def install_pipeline_compat(hass: HomeAssistant, entry_id: str) -> Callable[[], 
     """Install once, register this entry and return its idempotent release callback."""
     global _active_patch
     if _active_patch is None:
-        original = PipelineRun.recognize_intent
-        _check_compatible(original)
+        target = _get_pipeline_type()
+        original = target.recognize_intent
+        _check_compatible(original, target)
         owners: dict[HomeAssistant, set[str]] = {}
 
         @wraps(original)
         async def recognize_intent(
-            self: PipelineRun,
+            self: Any,
             intent_input: str,
             conversation_id: str,
             conversation_extra_system_prompt: str | None,
         ) -> tuple[str, bool]:
             # Resolve the actual entity, never its name or an assumed entity_id.
             # Other HA instances, agents and disabled/unloaded entries are untouched.
-            owned_entries = owners.get(self.hass)
+            host = self.host if target is not PipelineRun else self
+            owned_entries = owners.get(host.hass)
             agent = (
-                conversation.async_get_agent(self.hass, self.intent_agent.id)
+                conversation.async_get_agent(host.hass, self.intent_agent.id)
                 if owned_entries and self.intent_agent is not None
                 else None
             )
@@ -104,10 +127,10 @@ def install_pipeline_compat(hass: HomeAssistant, entry_id: str) -> Callable[[], 
                 else:
                     del self._intent_agent_only
 
-        PipelineRun.recognize_intent = recognize_intent
-        _active_patch = (original, recognize_intent, owners)
+        target.recognize_intent = recognize_intent
+        _active_patch = (target, original, recognize_intent, owners)
 
-    original, wrapper, owners = _active_patch
+    target, original, wrapper, owners = _active_patch
     owners.setdefault(hass, set()).add(entry_id)
     released = False
 
@@ -124,8 +147,8 @@ def install_pipeline_compat(hass: HomeAssistant, entry_id: str) -> Callable[[], 
             if not entries:
                 owners.pop(hass)
         if not owners:
-            if PipelineRun.recognize_intent is wrapper:
-                PipelineRun.recognize_intent = original
+            if target.recognize_intent is wrapper:
+                target.recognize_intent = original
             _active_patch = None
 
     return release

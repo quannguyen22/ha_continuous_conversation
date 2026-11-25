@@ -7,68 +7,24 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from homeassistant.components import conversation
-from homeassistant.components.assist_pipeline.pipeline import (
-    KEY_ASSIST_PIPELINE,
-    AudioSettings,
-    Pipeline,
-    PipelineConversationData,
-    PipelineEventType,
-    PipelineRun,
-    PipelineStage,
-)
+from homeassistant.components.assist_pipeline.pipeline import PipelineEventType
 from homeassistant.components.conversation.agent_manager import get_agent_manager
 from homeassistant.components.conversation.const import DATA_COMPONENT
 from homeassistant.components.conversation.default_agent import DefaultAgent
-from homeassistant.core import Context, HomeAssistant
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.script import Script
+from pipeline_helpers import make_run
 
 from custom_components.continuous_conversation.const import DEFAULTS
 from custom_components.continuous_conversation.conversation import (
     ContinuousConversation,
 )
 from custom_components.continuous_conversation.pipeline_compat import (
+    _get_pipeline_type,
     install_pipeline_compat,
 )
-
-
-def make_run(hass, agent_id, device="panel1", prefer_local=False):
-    hass.data.setdefault(
-        KEY_ASSIST_PIPELINE,
-        SimpleNamespace(
-            pipeline_debug={}, pipeline_runs=SimpleNamespace(add_run=Mock())
-        ),
-    )
-    pipeline = Pipeline(
-        agent_id,
-        "vi",
-        "vi",
-        "Vietnamese Local",
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        prefer_local,
-    )
-    events = []
-    run = PipelineRun(
-        hass,
-        Context(),
-        pipeline,
-        PipelineStage.INTENT,
-        PipelineStage.INTENT,
-        events.append,
-        intent_agent=conversation.AgentInfo(agent_id, "Agent", False),
-        audio_settings=AudioSettings(is_vad_enabled=False),
-        _device_id=device,
-        _satellite_id=f"assist_satellite.{device}",
-        _conversation_data=PipelineConversationData(),
-    )
-    return run, events
 
 
 async def setup_agents(hass, mode="Always", command="chất lượng không khí"):
@@ -118,7 +74,7 @@ async def test_first_turn_automation_reaches_policy_once(mode, expected, prefer_
     hass = HomeAssistant("/tmp/cc-compat-test")
     agent, builtin, seen, unsubscribe = await setup_agents(hass, mode)
     run, events = make_run(hass, agent.entity_id, prefer_local=prefer_local)
-    original = PipelineRun.recognize_intent
+    original = _get_pipeline_type().recognize_intent
     release = install_pipeline_compat(hass, "test")
     try:
         speech, _ = await run.recognize_intent(
@@ -130,7 +86,7 @@ async def test_first_turn_automation_reaches_policy_once(mode, expected, prefer_
         assert seen[0].satellite_id == "assist_satellite.panel1"
         assert seen[0].conversation_id == "session"
         assert seen[0].extra_system_prompt == "keep prompt"
-        assert seen[0].context is run.context
+        assert seen[0].context is getattr(run, "host", run).context
         output = next(
             e.data["intent_output"]
             for e in events
@@ -145,7 +101,7 @@ async def test_first_turn_automation_reaches_policy_once(mode, expected, prefer_
         release()
         unsubscribe()
         await builtin.async_will_remove_from_hass()
-    assert PipelineRun.recognize_intent is original
+    assert _get_pipeline_type().recognize_intent is original
 
 
 @pytest.mark.asyncio
@@ -240,25 +196,25 @@ async def test_cancelled_run_restores_override():
 
 @pytest.mark.asyncio
 async def test_reference_count_and_external_wrapper_are_preserved():
-    original = PipelineRun.recognize_intent
+    original = _get_pipeline_type().recognize_intent
     hass1, hass2 = HomeAssistant("/tmp/cc-owner1"), HomeAssistant("/tmp/cc-owner2")
     release1 = install_pipeline_compat(hass1, "one")
-    wrapper = PipelineRun.recognize_intent
+    wrapper = _get_pipeline_type().recognize_intent
     release2 = install_pipeline_compat(hass2, "two")
-    assert PipelineRun.recognize_intent is wrapper
+    assert _get_pipeline_type().recognize_intent is wrapper
     release1()
     release1()
-    assert PipelineRun.recognize_intent is wrapper
+    assert _get_pipeline_type().recognize_intent is wrapper
 
     @wraps(wrapper)
     async def external(*args, **kwargs):
         return await wrapper(*args, **kwargs)
 
-    with patch.object(PipelineRun, "recognize_intent", external):
+    with patch.object(_get_pipeline_type(), "recognize_intent", external):
         release2()
-        assert PipelineRun.recognize_intent is external
+        assert _get_pipeline_type().recognize_intent is external
     # The third-party owner is responsible for removing its wrapper.
-    PipelineRun.recognize_intent = original
+    _get_pipeline_type().recognize_intent = original
 
 
 @pytest.mark.asyncio
@@ -267,10 +223,10 @@ async def test_incompatible_api_rejected_without_mutation():
         pass
 
     hass = HomeAssistant("/tmp/cc-incompatible")
-    with patch.object(PipelineRun, "recognize_intent", incompatible):
+    with patch.object(_get_pipeline_type(), "recognize_intent", incompatible):
         with pytest.raises(ConfigEntryError, match="cannot safely patch"):
             install_pipeline_compat(hass, "test")
-        assert PipelineRun.recognize_intent is incompatible
+        assert _get_pipeline_type().recognize_intent is incompatible
 
 
 @pytest.mark.asyncio
@@ -295,3 +251,20 @@ async def test_unregistered_instance_is_untouched():
         release()
         unsubscribe()
         await builtin.async_will_remove_from_hass()
+
+
+@pytest.mark.asyncio
+async def test_missing_pipeline_api_reports_configuration_error():
+    """Missing methods must never escape as a raw AttributeError during startup."""
+    from homeassistant.components.assist_pipeline.pipeline import PipelineRun
+
+    hass = HomeAssistant("/tmp/cc-missing-api")
+    with (
+        patch.object(PipelineRun, "recognize_intent", None, create=True),
+        patch(
+            "custom_components.continuous_conversation.pipeline_compat.import_module",
+            return_value=SimpleNamespace(),
+        ),
+        pytest.raises(ConfigEntryError, match="cannot find a compatible"),
+    ):
+        install_pipeline_compat(hass, "test")

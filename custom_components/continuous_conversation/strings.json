@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Continuous Conversation",
-        "description": "Routes automations through this agent using a reversible runtime Assist Pipeline patch. Tested on Core 2026.9.3; see README for upgrade compatibility.",
+        "description": "Routes automations through this agent using a reversible runtime Assist Pipeline patch. Tested on Core 2026.9.3 / 2026.11.2; see README for upgrade compatibility.",
         "data": {
           "mode": "Conversation mode",
           "termination_phrases": "Termination phrases",

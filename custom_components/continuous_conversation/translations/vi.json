@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Continuous Conversation",
-        "description": "Dùng bản vá Assist Pipeline trong bộ nhớ để tiếp tục sau phản hồi automation. Đã kiểm thử với Core 2026.9.3; xem README về tương thích khi nâng cấp.",
+        "description": "Dùng bản vá Assist Pipeline trong bộ nhớ để tiếp tục sau phản hồi automation. Đã kiểm thử với Core 2026.9.3 / 2026.11.2; xem README về tương thích khi nâng cấp.",
         "data": {
           "mode": "Chế độ hội thoại",
           "termination_phrases": "Cụm từ kết thúc",
