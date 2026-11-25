@@ -1,0 +1,61 @@
+name: Publish versioned release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths: ['.github/workflows/release.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate version and prepare release notes
+        id: version
+        shell: python
+        run: |
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import subprocess
+
+          manifest_path = "custom_components/continuous_conversation/manifest.json"
+          version = json.loads(Path(manifest_path).read_text())["version"]
+          tag = os.environ["GITHUB_REF_NAME"] if os.environ["GITHUB_REF_TYPE"] == "tag" else f"v{version}"
+          if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
+              raise SystemExit(f"Invalid release tag: {tag}")
+          manifest = json.loads(subprocess.check_output(["git", "show", f"{tag}:{manifest_path}"], text=True))
+          if tag != f"v{manifest['version']}":
+              raise SystemExit("Tag does not match the tagged integration manifest version")
+          changelog = subprocess.check_output(["git", "show", f"{tag}:CHANGELOG.md"], text=True)
+          heading = f"## {manifest['version']}\n"
+          if heading not in changelog:
+              raise SystemExit("Release version is missing from CHANGELOG.md")
+          notes = changelog.split(heading, 1)[1].split("\n## ", 1)[0].strip()
+          Path(os.environ["RUNNER_TEMP"], "continuous-conversation-release.md").write_text(notes + "\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"tag={tag}\n")
+      - name: Publish GitHub Release for HACS
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "Release $TAG already exists"
+            exit 0
+          fi
+          gh release create "$TAG" --verify-tag --title "$TAG" \
+            --notes-file "$RUNNER_TEMP/continuous-conversation-release.md"

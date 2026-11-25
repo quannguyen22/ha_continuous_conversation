@@ -104,3 +104,7 @@ Tests use real pinned Home Assistant classes with a mocked delegate. They check 
 If the integration is missing, confirm the folder nesting, restart Core, and check startup logs. If the agent is missing, confirm the conversation platform loaded and the entity is enabled. If ordinary commands do not continue, disable local preference and verify the pipeline selects this agent. If first-turn automation commands stop, verify version 0.1.2 is installed, restart HA, and inspect integration setup errors and the pipeline trace. With this agent selected, successful automation results should now have `continue_conversation: true` in Always mode. If no response audio plays, check NghiTTS and the panel's reachability to the audio URL; Glassworks requires successful playback to restart. If listening hangs during silence, inspect the pipeline's STT/VAD diagnostics and Wyoming service; there is no agent-level timeout setting. Avoid sharing pipeline debug recordings containing private speech.
 
 To uninstall, select the built-in Home Assistant agent in each assistant, remove the integration from Devices & Services, remove its custom component directory, and restart Core.
+
+## Release numbering
+
+Published versions use matching manifest versions and Git tags (`0.1.3` / `v0.1.3`). The release workflow publishes a GitHub Release with that version and its changelog notes when a version tag is pushed. HACS can then display release versions instead of branch commit hashes. Installing from a development branch may still show a commit hash.
