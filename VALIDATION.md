@@ -6,11 +6,15 @@ Executed in isolated virtual environments using Python 3.14.4, the real Core 202
 
 Commands: `/tmp/cc-test-env/bin/python -m pytest -q` and `/tmp/cc-test-2026-11/bin/python -m pytest -q`.
 
-Version **0.1.3** result: **54 passed on Core 2026.9.3** and **54 passed on Core 2026.11.2**, in separate Python 3.14 virtual environments. Five upstream aiohttp/backoff deprecation warnings. Ruff, Python compilation and JSON validation also pass.
+Version **0.1.4** result: **79 passed on Core 2026.9.3** and **79 passed on Core 2026.11.3**, in separate Python 3.14 virtual environments. Five upstream aiohttp/backoff deprecation warnings. Ruff, Python compilation and JSON validation also pass.
 
 The original unit tests mock delegate calls and config-entry lifecycle operations. Regression tests execute the real Core 2026.9.3 and 2026.11.2 `PipelineRun.recognize_intent`, built-in `DefaultAgent`, Hassil sentence recognition, a registered trigger callback, and a real HA `Script` with `set_conversation_response` and sensor-template rendering. Entity-component lookup is supplied by a small test registry. Tests verify first-turn continuation with local preference both on and off, exact single execution, input/context/satellite/session preservation, all modes, stop-phrase precedence, cancellation restoration, concurrent panels, scope to the registered HA instance, ownership cleanup, setup/unload failures and incompatible API rejection. The baseline test also confirms the unpatched Core shortcut reproduces the failure.
 
 These are integration-level software tests, not physical STT/TTS or microphone tests.
+
+## Repeated mode-prefix repair in 0.1.4
+
+Tests cover multiple mode names through the real Core pipeline/default agent/trigger/script, exactly one callback and one user chat-log message per request, enabled/disabled settings, backward-compatible defaults, copied input preserving every non-text field and the original caller object, multiple repetitions, case/whitespace/NFC normalization, and leaving unrelated or incomplete sentences untouched. The repair does not claim to correct microphone audio or the STT engine. Live panel retest is pending deployment.
 
 ## Per-phrase and silent termination in 0.1.3
 

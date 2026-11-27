@@ -53,6 +53,10 @@ def options_schema(options: dict[str, Any]) -> vol.Schema:
             vol.Required(
                 "continue_unrecognized", default=values["continue_unrecognized"]
             ): bool,
+            vol.Optional(
+                "repair_repeated_mode_prefix",
+                default=values["repair_repeated_mode_prefix"],
+            ): bool,
             vol.Required("max_failures", default=values["max_failures"]): vol.All(
                 vol.Coerce(int), vol.Range(min=1, max=10)
             ),

@@ -1,8 +1,8 @@
 # Continuous Conversation
 
-A local custom Home Assistant conversation agent that delegates to the built-in agent and changes only the continuation flag. Tested on Core **2026.9.3 and 2026.11.2**, Glassworks **Aqara S1 Plus 0.9.0**. No LLM, cloud service, or firmware change is included. Version 0.1.2 includes a scoped, reversible runtime patch to Assist Pipeline; it does not modify Core files on disk.
+A local custom Home Assistant conversation agent that delegates to the built-in agent and changes only the continuation flag. Tested on Core **2026.9.3, 2026.11.2 and 2026.11.3**, Glassworks **Aqara S1 Plus 0.9.0**. No LLM, cloud service, or firmware change is included. Version 0.1.2 includes a scoped, reversible runtime patch to Assist Pipeline; it does not modify Core files on disk.
 
-**Status: 0.1.3 adds per-phrase replies and silent termination, retaining the first-turn automation routing fix and real Core pipeline/agent/script regression tests. Physical Glassworks validation is still pending.** The runtime compatibility patch uses private Core APIs; read the compatibility section before upgrading Core.
+**Status: 0.1.4 adds a configurable repeated-prefix repair, retaining the first-turn automation routing fix and real Core pipeline/agent/script regression tests. Physical Glassworks validation is still pending.** The runtime compatibility patch uses private Core APIs; read the compatibility section before upgrading Core.
 
 ## Installation
 
@@ -42,9 +42,17 @@ Silent termination returns no speech payload and sets `continue_conversation` to
 
 Stop phrases are matched against the entire normalized utterance: NFC Unicode, case folding, punctuation replaced by spaces, and collapsed whitespace. Accents are retained. “CẢM ƠN NHÉ!” matches; “bật đèn rồi cảm ơn nhé” does not. An empty phrase list disables phrase interception. Empty/punctuation-only phrases and blank shared responses are rejected. Per-phrase responses may be empty for silent termination.
 
+## Repeated mode-prefix repair (0.1.4)
+
+**Repair repeated “chế độ” prefix** is enabled by default, including for existing entries with no new option saved. It changes a leading `chế độ chế độ tiếp khách` to `chế độ tiếp khách`, or `chế độ chế độ ăn tối` to `chế độ ăn tối`. It also handles three or more consecutive copies, different capitalization, whitespace and decomposed Vietnamese Unicode. A non-empty target must follow the repeated prefix. Other words, repeated device names, repeated words later in a sentence, and incomplete `chế độ chế độ` input remain unchanged. You can turn it off in the integration options if an intentionally repeated name needs to be matched literally.
+
+The fix is local text preprocessing before the built-in agent performs sentence/intent matching; it does not change the STT engine or diagnose why the audio was transcribed twice. It works for any mode name recognized by existing sentences, scenes or automations, without adding duplicate-phrase triggers to each automation. In the patched pipeline the repair runs before the chat log opens, so there is one user message and one automation execution. The raw STT event/transcript can still show the duplicated wording; the intent input and command matching use the corrected text.
+
+Direct conversation-agent calls use a copied `ConversationInput` only when text needs repair. The caller's original object is never mutated; context, device/satellite ID, language, conversation ID, agent attribution and extra prompt are preserved. Unrepaired input is delegated unchanged. The delegate result/response is preserved as before. No utterance content is logged by the repair.
+
 ## Architecture and runtime compatibility
 
-The wrapper is a `ConversationEntity`, discovered through the conversation platform. It explicitly resolves `conversation.HOME_ASSISTANT_AGENT` and calls that agent's `async_process` once with the **original ConversationInput object**. This preserves text, context, language, device/satellite IDs, conversation ID, original agent attribution, and extra prompt. It returns the original result and response object after adjusting `continue_conversation`. Built-in matching, custom sentences, intent handling, and automation `set_conversation_response` stay in the built-in code path.
+The wrapper is a `ConversationEntity`, discovered through the conversation platform. It explicitly resolves `conversation.HOME_ASSISTANT_AGENT` and calls that agent's `async_process` once with the **original ConversationInput object**, or a copy with only text repaired when the configurable prefix fix applies. This preserves text, context, language, device/satellite IDs, conversation ID, original agent attribution, and extra prompt. It returns the original result and response object after adjusting `continue_conversation`. Built-in matching, custom sentences, intent handling, and automation `set_conversation_response` stay in the built-in code path.
 
 Core 2026.9.3 tries sentence-trigger automations before calling custom agents. Version 0.1.0 therefore could not continue after first-turn automation commands, even with local preference disabled. This was confirmed in the user's live pipeline trace for “chất lượng không khí”: `processed_locally: true`, `continue_conversation: false`.
 
@@ -54,7 +62,7 @@ The integration wraps the actual intent processor in memory: `PipelineRun.recogn
 
 The previous per-run flag is restored in `finally`, including cancellation/errors. Other agents and HA instances retain their original routing. Renaming the conversation entity does not break selection. Unloading the final entry restores the original method when the integration still owns the method slot; if another integration wrapped it later, that wrapper is left intact and this integration's retained wrapper becomes inert. Setup failure also releases the patch; failed unload retains it with the still-loaded entry.
 
-**This is an explicit runtime monkey-patch, approved as an exception to the original no-monkey-patch requirement.** No Core file or automation is edited. The patch is installed automatically on startup/reload, so there is no manual Core patch to reapply after an upgrade. However, future Core compatibility is not guaranteed: this version is tested against **2026.9.3 and 2026.11.2**. Setup checks the method signature and the presence of the expected routing hooks; incompatible shapes and pre-existing wrappers are rejected with a configuration error. These structural checks cannot detect every semantic change in future Core releases. Update this integration if Core changes its pipeline internals.
+**This is an explicit runtime monkey-patch, approved as an exception to the original no-monkey-patch requirement.** No Core file or automation is edited. The patch is installed automatically on startup/reload, so there is no manual Core patch to reapply after an upgrade. However, future Core compatibility is not guaranteed: this version supports the verified pipeline layouts from **2026.9.3, 2026.11.2 and 2026.11.3**. Setup checks the method signature and the presence of the expected routing hooks; incompatible shapes and pre-existing wrappers are rejected with a configuration error. These structural checks cannot detect every semantic change in future Core releases. Update this integration if Core changes its pipeline internals.
 
 Only the integration files need updating through HACS. After upgrading to 0.1.2, restart Home Assistant so Python loads the new compatibility module. To roll back, install 0.1.0 and restart, accepting its first-turn automation limitation; removing the integration also releases the runtime patch.
 
@@ -95,7 +103,7 @@ python3 -m venv .venv
 .venv/bin/python -m pytest -q
 ```
 
-For Core 2026.11.2, use `requirements_test_2026_11.txt` instead. The CI matrix tests both layouts, including actual integration setup/unload.
+For Core 2026.11.2, use `requirements_test_2026_11.txt`; for Core 2026.11.3 use `requirements_test_2026_11_3.txt`. The CI matrix tests all three versions, including actual integration setup/unload.
 
 Tests use real pinned Home Assistant classes with a mocked delegate. They check exact input and response preservation, modes, stop matching, errors, failure limits/reset, session isolation, concurrent devices, expiry/bounds, configuration and platform lifecycle. Additional regression tests run the real Core pipeline, default agent sentence matching, registered trigger callback and a real script containing `set_conversation_response`. They verify one execution per request, mode policy, overlapping stop phrases, renamed agents, two concurrent panels, patch cleanup, cancellation and compatibility rejection. They do not execute real STT/TTS or a physical panel. See `VALIDATION.md` for the recorded results and remaining acceptance checks.
 

@@ -11,11 +11,13 @@
           "termination_response": "Phản hồi khi kết thúc",
           "continue_unrecognized": "Tiếp tục sau lệnh không nhận dạng được",
           "max_failures": "Số lệnh thất bại liên tiếp tối đa",
-          "termination_rules": "Phản hồi riêng theo cụm từ kết thúc"
+          "termination_rules": "Phản hồi riêng theo cụm từ kết thúc",
+          "repair_repeated_mode_prefix": "Sửa lặp cụm “chế độ” ở đầu câu"
         },
         "data_description": {
           "termination_rules": "Thêm quy tắc cho từng cụm từ. Để trống phản hồi hoặc bật Kết thúc im lặng để dừng không đọc gì. Quy tắc riêng được ưu tiên hơn danh sách chung; không nhập hai cụm từ giống nhau.",
-          "termination_response": "Dùng cho các cụm từ trong danh sách chung chưa có quy tắc riêng."
+          "termination_response": "Dùng cho các cụm từ trong danh sách chung chưa có quy tắc riêng.",
+          "repair_repeated_mode_prefix": "Ví dụ: “chế độ chế độ tiếp khách” → “chế độ tiếp khách”. Chỉ gộp cụm này khi lặp ở đầu câu và còn tên chế độ phía sau."
         }
       }
     },
@@ -36,11 +38,13 @@
           "termination_response": "Phản hồi khi kết thúc",
           "continue_unrecognized": "Tiếp tục sau lệnh không nhận dạng được",
           "max_failures": "Số lệnh thất bại liên tiếp tối đa",
-          "termination_rules": "Phản hồi riêng theo cụm từ kết thúc"
+          "termination_rules": "Phản hồi riêng theo cụm từ kết thúc",
+          "repair_repeated_mode_prefix": "Sửa lặp cụm “chế độ” ở đầu câu"
         },
         "data_description": {
           "termination_rules": "Thêm quy tắc cho từng cụm từ. Để trống phản hồi hoặc bật Kết thúc im lặng để dừng không đọc gì. Quy tắc riêng được ưu tiên hơn danh sách chung; không nhập hai cụm từ giống nhau.",
-          "termination_response": "Dùng cho các cụm từ trong danh sách chung chưa có quy tắc riêng."
+          "termination_response": "Dùng cho các cụm từ trong danh sách chung chưa có quy tắc riêng.",
+          "repair_repeated_mode_prefix": "Ví dụ: “chế độ chế độ tiếp khách” → “chế độ tiếp khách”. Chỉ gộp cụm này khi lặp ở đầu câu và còn tên chế độ phía sau."
         }
       }
     },

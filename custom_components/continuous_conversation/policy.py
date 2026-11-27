@@ -1,8 +1,23 @@
 """Pure continuation policy and bounded failure accounting."""
 
+import re
 import unicodedata
 from collections import OrderedDict
 from time import monotonic
+
+_REPEATED_MODE_PREFIX = re.compile(
+    r"^\s*chế\s+độ(?:\s+chế\s+độ)+(?=\s|$)", re.IGNORECASE
+)
+
+
+def repair_mode_prefix(text: str) -> str:
+    """Collapse only a repeated Vietnamese mode prefix with a following target."""
+    composed = unicodedata.normalize("NFC", text)
+    if (match := _REPEATED_MODE_PREFIX.match(composed)) and composed[
+        match.end() :
+    ].strip():
+        return "chế độ" + composed[match.end() :]
+    return text
 
 
 def normalize(text: str) -> str:

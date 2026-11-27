@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        requirements: [requirements_test.txt, requirements_test_2026_11.txt]
+        requirements: [requirements_test.txt, requirements_test_2026_11.txt, requirements_test_2026_11_3.txt]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

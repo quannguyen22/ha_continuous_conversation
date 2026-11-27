@@ -11,11 +11,13 @@
           "termination_response": "Termination response",
           "continue_unrecognized": "Continue after an unrecognized command",
           "max_failures": "Maximum consecutive failed commands",
-          "termination_rules": "Per-phrase termination responses"
+          "termination_rules": "Per-phrase termination responses",
+          "repair_repeated_mode_prefix": "Repair repeated “chế độ” prefix"
         },
         "data_description": {
           "termination_rules": "Add one rule per phrase. Leave the response empty or enable End silently to stop without speech. Rules override the shared list; duplicate normalized phrases are not allowed.",
-          "termination_response": "Used for shared-list phrases without a per-phrase rule."
+          "termination_response": "Used for shared-list phrases without a per-phrase rule.",
+          "repair_repeated_mode_prefix": "Example: “chế độ chế độ tiếp khách” → “chế độ tiếp khách”. Only collapse this repeated leading prefix when a target follows."
         }
       }
     },
@@ -36,11 +38,13 @@
           "termination_response": "Termination response",
           "continue_unrecognized": "Continue after an unrecognized command",
           "max_failures": "Maximum consecutive failed commands",
-          "termination_rules": "Per-phrase termination responses"
+          "termination_rules": "Per-phrase termination responses",
+          "repair_repeated_mode_prefix": "Repair repeated “chế độ” prefix"
         },
         "data_description": {
           "termination_rules": "Add one rule per phrase. Leave the response empty or enable End silently to stop without speech. Rules override the shared list; duplicate normalized phrases are not allowed.",
-          "termination_response": "Used for shared-list phrases without a per-phrase rule."
+          "termination_response": "Used for shared-list phrases without a per-phrase rule.",
+          "repair_repeated_mode_prefix": "Example: “chế độ chế độ tiếp khách” → “chế độ tiếp khách”. Only collapse this repeated leading prefix when a target follows."
         }
       }
     },

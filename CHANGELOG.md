@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.4
+
+- Add a local, configurable workaround for STT repeating the leading Vietnamese “chế độ” prefix, applying to all mode names without per-automation edits. Enabled by default; can be disabled in options.
+- Collapse only adjacent leading copies with a following target. Preserve unrelated text and the original caller input/context.
+- Repair pipeline text before its chat log opens, preserving one user message and one trigger execution. Raw STT diagnostics remain unchanged.
+- Add regression tests for prefix scope, Unicode, disabled behavior, input preservation, legacy options and real pipeline automation matching. Extend CI to Core 2026.11.3.
+
 ## 0.1.3
 
 - Add UI-editable per-phrase termination rules with individual responses and a silent toggle. Empty rule responses also end silently.

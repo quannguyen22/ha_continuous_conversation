@@ -188,3 +188,14 @@ async def test_rules_persist_through_options_flow():
     )
     assert invalid["type"] == "form"
     assert invalid["errors"] == {"base": "invalid_text"}
+
+
+@pytest.mark.asyncio
+async def test_repair_setting_defaults_and_persists():
+    legacy = {k: v for k, v in DEFAULTS.items() if k != "repair_repeated_mode_prefix"}
+    assert options_schema(legacy)(legacy)["repair_repeated_mode_prefix"] is True
+    values = DEFAULTS | {"repair_repeated_mode_prefix": False}
+    assert options_schema({})(values)["repair_repeated_mode_prefix"] is False
+    flow = ContinuousConversationOptionsFlow()
+    response = await flow.async_step_init(values)
+    assert response["data"]["repair_repeated_mode_prefix"] is False

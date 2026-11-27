@@ -1,5 +1,6 @@
 """Delegate locally to Home Assistant and apply continuation policy."""
 
+from dataclasses import replace
 from typing import Literal
 
 from homeassistant.components import conversation
@@ -10,7 +11,7 @@ from homeassistant.helpers import intent
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DEFAULTS
-from .policy import FailureTracker, normalize
+from .policy import FailureTracker, normalize, repair_mode_prefix
 
 
 async def async_setup_entry(
@@ -23,7 +24,7 @@ async def async_setup_entry(
 
 
 class ContinuousConversation(conversation.ConversationEntity):
-    """Wrap the explicit built-in agent without changing input or response data."""
+    """Wrap the built-in agent with configurable text repair and continuation policy."""
 
     _attr_has_entity_name = True
     _attr_name = "Continuous Conversation"
@@ -50,6 +51,14 @@ class ContinuousConversation(conversation.ConversationEntity):
         if agent is not None:
             await agent.async_prepare(language)
 
+    def prepare_input_text(self, text: str) -> str:
+        """Apply the configured narrow repair, leaving other utterances untouched."""
+        if self.entry.options.get(
+            "repair_repeated_mode_prefix", DEFAULTS["repair_repeated_mode_prefix"]
+        ):
+            return repair_mode_prefix(text)
+        return text
+
     def _reply(
         self, user_input: conversation.ConversationInput, text: str, error: bool = False
     ) -> conversation.ConversationResult:
@@ -66,7 +75,10 @@ class ContinuousConversation(conversation.ConversationEntity):
     async def async_process(
         self, user_input: conversation.ConversationInput
     ) -> conversation.ConversationResult:
-        """Process exactly once through the built-in entity, preserving the input object."""
+        """Delegate once; copy only repaired input and preserve all other fields."""
+        prepared_text = self.prepare_input_text(user_input.text)
+        if prepared_text != user_input.text:
+            user_input = replace(user_input, text=prepared_text)
         options = DEFAULTS | self.entry.options
         self.failures.prune()
         text = normalize(user_input.text)
@@ -100,7 +112,7 @@ class ContinuousConversation(conversation.ConversationEntity):
             return self._reply(user_input, "Xin lỗi, trợ lý hiện chưa sẵn sàng.", True)
         try:
             # Explicit lookup avoids pipeline selection recursion. Passing the original
-            # object also preserves agent_id for automation and chat-log attribution.
+            # object (or its repaired copy) preserves all request attribution.
             result = await agent.async_process(user_input)
         except HomeAssistantError:
             self.failures.clear(key)

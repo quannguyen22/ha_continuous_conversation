@@ -113,6 +113,9 @@ def install_pipeline_compat(hass: HomeAssistant, entry_id: str) -> Callable[[], 
             previous = self._intent_agent_only
             self._intent_agent_only = True
             try:
+                # Repair before the pipeline opens its chat log, so it records one
+                # user message. The raw STT event remains available for diagnostics.
+                intent_input = agent.prepare_input_text(intent_input)
                 # The delegate handles triggers exactly once. Its final result then
                 # passes through the normal mode/termination/error policy.
                 return await original(
